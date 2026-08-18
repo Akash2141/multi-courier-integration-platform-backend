@@ -1,0 +1,334 @@
+{
+  "info": {
+    "_postman_id": "89ab12cd-34ef-5678-90ab-cdef12345678",
+    "name": "Multi-Courier Integration Platform API",
+    "description": "Unified API Collection for Multi-Courier Logistics Platform with Pluggable Courier Architecture (UrbaneBolt & MockCourier).",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "authToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "sampleOrderId",
+      "value": "ORD-SAMPLE-2026-001",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "0. System & Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            }
+          }
+        },
+        {
+          "name": "List Supported Couriers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/couriers",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "couriers"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "1. Authentication",
+      "item": [
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('authToken', jsonData.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"engineer@futurevision.com\",\n  \"password\": \"SecurePass123!\",\n  \"role\": \"ADMIN\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "register"]
+            }
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.data.token) {",
+                  "    pm.collectionVariables.set('authToken', jsonData.data.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"engineer@futurevision.com\",\n  \"password\": \"SecurePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            }
+          }
+        },
+        {
+          "name": "Get Profile (/me)",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "me"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "2. Orders & Shipments",
+      "item": [
+        {
+          "name": "Create Order - UrbaneBolt",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"ORD-UB-{{$timestamp}}\",\n  \"courier_partner\": \"urbanebolt\",\n  \"sender\": {\n    \"name\": \"Rohit Athaley\",\n    \"phone\": \"9425018023\",\n    \"email\": \"bhopal@mbdgroup.com\",\n    \"address\": \"Plot No. 137 Sector-1 Special Industrial Area\",\n    \"city\": \"Govindpura\",\n    \"state\": \"BHOPAL\",\n    \"pincode\": \"122001\",\n    \"country\": \"India\",\n    \"address_type\": \"Seller\"\n  },\n  \"recipient\": {\n    \"name\": \"Satyam Convent School\",\n    \"phone\": \"8320226438\",\n    \"email\": \"satyam@example.com\",\n    \"address\": \"Plot No. 26-27, Om Nagar Society\",\n    \"city\": \"Surat\",\n    \"state\": \"GUJARAT\",\n    \"pincode\": \"122017\",\n    \"country\": \"India\",\n    \"address_type\": \"Home\"\n  },\n  \"package_details\": {\n    \"weight_kg\": 1.1,\n    \"length_cm\": 12,\n    \"breadth_cm\": 10,\n    \"height_cm\": 10,\n    \"items_count\": 1,\n    \"item_description\": \"Textbooks Package\"\n  },\n  \"payment_details\": {\n    \"payment_mode\": \"COD\",\n    \"collectable_amount\": 500,\n    \"declared_value\": 500\n  },\n  \"invoice_details\": {\n    \"invoice_number\": \"INV-UB-001\",\n    \"invoice_date\": \"2026-08-18\",\n    \"invoice_value\": 500\n  },\n  \"service_type\": \"SDD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Create Order - Mock Courier",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"ORD-MCK-{{$timestamp}}\",\n  \"courier_partner\": \"mock\",\n  \"sender\": {\n    \"name\": \"Apex Logistics Hub\",\n    \"phone\": \"9876543210\",\n    \"email\": \"hub@apex.com\",\n    \"address\": \"12 Industrial Area Phase 2\",\n    \"city\": \"Gurugram\",\n    \"state\": \"Haryana\",\n    \"pincode\": \"122001\",\n    \"country\": \"India\",\n    \"address_type\": \"Seller\"\n  },\n  \"recipient\": {\n    \"name\": \"John Doe\",\n    \"phone\": \"9123456780\",\n    \"email\": \"john@example.com\",\n    \"address\": \"Flat 401, Skyline Towers\",\n    \"city\": \"Bengaluru\",\n    \"state\": \"Karnataka\",\n    \"pincode\": \"560001\",\n    \"country\": \"India\",\n    \"address_type\": \"Home\"\n  },\n  \"package_details\": {\n    \"weight_kg\": 1.5,\n    \"length_cm\": 15,\n    \"breadth_cm\": 10,\n    \"height_cm\": 8,\n    \"items_count\": 1,\n    \"item_description\": \"Smart Watch\"\n  },\n  \"payment_details\": {\n    \"payment_mode\": \"PREPAID\",\n    \"collectable_amount\": 0,\n    \"declared_value\": 3499\n  },\n  \"service_type\": \"STANDARD\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Track Order",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{sampleOrderId}}/track",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{sampleOrderId}}", "track"]
+            }
+          }
+        },
+        {
+          "name": "Get Order from Local DB",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{sampleOrderId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{sampleOrderId}}"]
+            }
+          }
+        },
+        {
+          "name": "Cancel Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"reason\": \"Customer requested order cancellation before dispatch\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/{{sampleOrderId}}/cancel",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "{{sampleOrderId}}", "cancel"]
+            }
+          }
+        },
+        {
+          "name": "Bulk Create Orders (up to 100)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"orders\": [\n    {\n      \"order_id\": \"ORD-BULK-01-{{$timestamp}}\",\n      \"courier_partner\": \"mock\",\n      \"sender\": {\n        \"name\": \"Warehouse North\",\n        \"phone\": \"9876543210\",\n        \"address\": \"Industrial Estate\",\n        \"city\": \"Delhi\",\n        \"state\": \"Delhi\",\n        \"pincode\": \"110001\"\n      },\n      \"recipient\": {\n        \"name\": \"Alice\",\n        \"phone\": \"9876543211\",\n        \"address\": \"MG Road\",\n        \"city\": \"Bangalore\",\n        \"state\": \"Karnataka\",\n        \"pincode\": \"560001\"\n      },\n      \"package_details\": {\n        \"weight_kg\": 1,\n        \"length_cm\": 10,\n        \"breadth_cm\": 10,\n        \"height_cm\": 10,\n        \"items_count\": 1,\n        \"item_description\": \"Shoes\"\n      },\n      \"payment_details\": {\n        \"payment_mode\": \"PREPAID\",\n        \"collectable_amount\": 0,\n        \"declared_value\": 2000\n      }\n    },\n    {\n      \"order_id\": \"ORD-BULK-02-{{$timestamp}}\",\n      \"courier_partner\": \"urbanebolt\",\n      \"sender\": {\n        \"name\": \"Warehouse South\",\n        \"phone\": \"9876543210\",\n        \"address\": \"Industrial Area\",\n        \"city\": \"Govindpura\",\n        \"state\": \"BHOPAL\",\n        \"pincode\": \"122001\"\n      },\n      \"recipient\": {\n        \"name\": \"Bob\",\n        \"phone\": \"9876543212\",\n        \"address\": \"Civil Lines\",\n        \"city\": \"Surat\",\n        \"state\": \"GUJARAT\",\n        \"pincode\": \"122017\"\n      },\n      \"package_details\": {\n        \"weight_kg\": 2,\n        \"length_cm\": 15,\n        \"breadth_cm\": 15,\n        \"height_cm\": 10,\n        \"items_count\": 1,\n        \"item_description\": \"Books\"\n      },\n      \"payment_details\": {\n        \"payment_mode\": \"COD\",\n        \"collectable_amount\": 650,\n        \"declared_value\": 650\n      }\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders/bulk",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders", "bulk"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "3. Error Handling Scenarios",
+      "item": [
+        {
+          "name": "Error - Unknown Courier Partner",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"ORD-UNKNOWN-TEST\",\n  \"courier_partner\": \"non_existent_courier\",\n  \"sender\": {\n    \"name\": \"Test Shipper\",\n    \"phone\": \"9876543210\",\n    \"address\": \"Address\",\n    \"city\": \"City\",\n    \"state\": \"State\",\n    \"pincode\": \"110001\"\n  },\n  \"recipient\": {\n    \"name\": \"Test Recipient\",\n    \"phone\": \"9876543211\",\n    \"address\": \"Address\",\n    \"city\": \"City\",\n    \"state\": \"State\",\n    \"pincode\": \"400001\"\n  },\n  \"package_details\": {\n    \"weight_kg\": 1,\n    \"length_cm\": 10,\n    \"breadth_cm\": 10,\n    \"height_cm\": 10,\n    \"items_count\": 1,\n    \"item_description\": \"Item\"\n  },\n  \"payment_details\": {\n    \"payment_mode\": \"PREPAID\",\n    \"collectable_amount\": 0,\n    \"declared_value\": 100\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            }
+          }
+        },
+        {
+          "name": "Error - Schema Validation Failure",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_id\": \"ORD-INVALID\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/orders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "orders"]
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

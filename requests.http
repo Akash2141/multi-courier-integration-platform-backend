@@ -1,0 +1,300 @@
+### Multi-Courier Integration Platform - HTTP Requests
+### Compatible with VS Code REST Client & JetBrains HTTP Client
+
+@baseUrl = http://localhost:3000
+@contentType = application/json
+@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+@sampleOrderId = ORD-SAMPLE-001
+
+# ==============================================================================
+# 0. System Health & Courier Discovery
+# ==============================================================================
+
+### 1. Health Check
+GET {{baseUrl}}/health HTTP/1.1
+
+### 2. List Supported Couriers
+GET {{baseUrl}}/api/v1/couriers HTTP/1.1
+
+
+# ==============================================================================
+# 1. User Authentication (JWT)
+# ==============================================================================
+
+### 3. Register New User
+# @name registerUser
+POST {{baseUrl}}/api/v1/auth/register HTTP/1.1
+Content-Type: {{contentType}}
+
+{
+  "email": "engineer@futurevision.com",
+  "password": "SecurePassword123!",
+  "role": "ADMIN"
+}
+
+### 4. Login User
+# @name loginUser
+POST {{baseUrl}}/api/v1/auth/login HTTP/1.1
+Content-Type: {{contentType}}
+
+{
+  "email": "engineer@futurevision.com",
+  "password": "SecurePassword123!"
+}
+
+### 5. Get Authenticated User Profile
+GET {{baseUrl}}/api/v1/auth/me HTTP/1.1
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+
+# ==============================================================================
+# 2. Single Order & Shipment Operations
+# ==============================================================================
+
+### 6. Create Shipment with UrbaneBolt (Idempotent)
+# @name createUrbaneBoltOrder
+POST {{baseUrl}}/api/v1/orders HTTP/1.1
+Content-Type: {{contentType}}
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+{
+  "order_id": "ORD-UB-{{$timestamp}}",
+  "courier_partner": "urbanebolt",
+  "sender": {
+    "name": "Rohit Athaley",
+    "phone": "9425018023",
+    "email": "bhopal@mbdgroup.com",
+    "address": "Plot No. 137 Sector-1 Special Industrial Area",
+    "city": "Govindpura",
+    "state": "BHOPAL",
+    "pincode": "122001",
+    "country": "India",
+    "address_type": "Seller"
+  },
+  "recipient": {
+    "name": "Satyam Convent School",
+    "phone": "8320226438",
+    "email": "satyam@example.com",
+    "address": "Plot No. 26-27, Om Nagar Society",
+    "city": "Surat",
+    "state": "GUJARAT",
+    "pincode": "122017",
+    "country": "India",
+    "address_type": "Home"
+  },
+  "package_details": {
+    "weight_kg": 1.1,
+    "length_cm": 12,
+    "breadth_cm": 10,
+    "height_cm": 10,
+    "items_count": 1,
+    "item_description": "Textbooks Package"
+  },
+  "payment_details": {
+    "payment_mode": "COD",
+    "collectable_amount": 500,
+    "declared_value": 500
+  },
+  "invoice_details": {
+    "invoice_number": "INV-UB-001",
+    "invoice_date": "2026-08-18",
+    "invoice_value": 500
+  },
+  "service_type": "SDD"
+}
+
+### 7. Create Shipment with MockCourier (Pluggable Second Courier)
+# @name createMockOrder
+POST {{baseUrl}}/api/v1/orders HTTP/1.1
+Content-Type: {{contentType}}
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+{
+  "order_id": "ORD-MCK-{{$timestamp}}",
+  "courier_partner": "mock",
+  "sender": {
+    "name": "Apex Logistics Hub",
+    "phone": "9876543210",
+    "email": "hub@apex.com",
+    "address": "12 Industrial Area Phase 2",
+    "city": "Gurugram",
+    "state": "Haryana",
+    "pincode": "122001",
+    "country": "India",
+    "address_type": "Seller"
+  },
+  "recipient": {
+    "name": "Alice Smith",
+    "phone": "9123456780",
+    "email": "alice@example.com",
+    "address": "Flat 401, Skyline Towers",
+    "city": "Bengaluru",
+    "state": "Karnataka",
+    "pincode": "560001",
+    "country": "India",
+    "address_type": "Home"
+  },
+  "package_details": {
+    "weight_kg": 1.5,
+    "length_cm": 15,
+    "breadth_cm": 10,
+    "height_cm": 8,
+    "items_count": 1,
+    "item_description": "Smart Watch"
+  },
+  "payment_details": {
+    "payment_mode": "PREPAID",
+    "collectable_amount": 0,
+    "declared_value": 3499
+  },
+  "service_type": "STANDARD"
+}
+
+### 8. Track Shipment Status (Live Courier Tracking & Timeline)
+GET {{baseUrl}}/api/v1/orders/{{createMockOrder.response.body.data.order_id}}/track HTTP/1.1
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+### 9. Get Order Details from Local Database
+GET {{baseUrl}}/api/v1/orders/{{createMockOrder.response.body.data.order_id}} HTTP/1.1
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+### 10. Cancel Shipment with Courier Partner
+POST {{baseUrl}}/api/v1/orders/{{createMockOrder.response.body.data.order_id}}/cancel HTTP/1.1
+Content-Type: {{contentType}}
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+{
+  "reason": "Customer requested order cancellation before shipment dispatch"
+}
+
+
+# ==============================================================================
+# 3. Bulk Order Processing (Multi-Courier Concurrency)
+# ==============================================================================
+
+### 11. Bulk Create Orders (Up to 100 Orders)
+POST {{baseUrl}}/api/v1/orders/bulk HTTP/1.1
+Content-Type: {{contentType}}
+Authorization: Bearer {{loginUser.response.body.data.token}}
+
+{
+  "orders": [
+    {
+      "order_id": "BULK-MCK-01-{{$timestamp}}",
+      "courier_partner": "mock",
+      "sender": {
+        "name": "Warehouse North",
+        "phone": "9876543210",
+        "address": "Industrial Estate",
+        "city": "Delhi",
+        "state": "Delhi",
+        "pincode": "110001"
+      },
+      "recipient": {
+        "name": "Alice Doe",
+        "phone": "9876543211",
+        "address": "MG Road",
+        "city": "Bangalore",
+        "state": "Karnataka",
+        "pincode": "560001"
+      },
+      "package_details": {
+        "weight_kg": 1.0,
+        "length_cm": 10,
+        "breadth_cm": 10,
+        "height_cm": 10,
+        "items_count": 1,
+        "item_description": "Running Shoes"
+      },
+      "payment_details": {
+        "payment_mode": "PREPAID",
+        "collectable_amount": 0,
+        "declared_value": 2499
+      }
+    },
+    {
+      "order_id": "BULK-UB-02-{{$timestamp}}",
+      "courier_partner": "urbanebolt",
+      "sender": {
+        "name": "Warehouse South",
+        "phone": "9425018023",
+        "address": "Plot 137 Sector-1",
+        "city": "Govindpura",
+        "state": "BHOPAL",
+        "pincode": "122001"
+      },
+      "recipient": {
+        "name": "Bob Marley",
+        "phone": "8320226438",
+        "address": "Civil Lines",
+        "city": "Surat",
+        "state": "GUJARAT",
+        "pincode": "122017"
+      },
+      "package_details": {
+        "weight_kg": 2.0,
+        "length_cm": 15,
+        "breadth_cm": 15,
+        "height_cm": 10,
+        "items_count": 2,
+        "item_description": "Notebooks Set"
+      },
+      "payment_details": {
+        "payment_mode": "COD",
+        "collectable_amount": 650,
+        "declared_value": 650
+      }
+    }
+  ]
+}
+
+
+# ==============================================================================
+# 4. Error Handling Scenarios
+# ==============================================================================
+
+### 12. Error: Unknown Courier Partner (Returns 400 with supported couriers)
+POST {{baseUrl}}/api/v1/orders HTTP/1.1
+Content-Type: {{contentType}}
+
+{
+  "order_id": "ERR-COURIER-01",
+  "courier_partner": "invalid_courier_service",
+  "sender": {
+    "name": "Shipper",
+    "phone": "9876543210",
+    "address": "Hub",
+    "city": "Delhi",
+    "state": "Delhi",
+    "pincode": "110001"
+  },
+  "recipient": {
+    "name": "User",
+    "phone": "9123456781",
+    "address": "Home",
+    "city": "Mumbai",
+    "state": "MH",
+    "pincode": "400001"
+  },
+  "package_details": {
+    "weight_kg": 1,
+    "length_cm": 10,
+    "breadth_cm": 10,
+    "height_cm": 10,
+    "items_count": 1,
+    "item_description": "Item"
+  },
+  "payment_details": {
+    "payment_mode": "PREPAID",
+    "collectable_amount": 0,
+    "declared_value": 100
+  }
+}
+
+### 13. Error: AJV Schema Validation Failure (Missing Required Fields)
+POST {{baseUrl}}/api/v1/orders HTTP/1.1
+Content-Type: {{contentType}}
+
+{
+  "order_id": "INVALID-PAYLOAD"
+}
