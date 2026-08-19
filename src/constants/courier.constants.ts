@@ -25,11 +25,21 @@ export enum PaymentMode {
   PREPAID = 'PREPAID',
 }
 
+export enum UrbaneBoltPayMode {
+  COD = 'COD',
+  PPD = 'PPD',
+}
+
 export enum ServiceType {
   STANDARD = 'STANDARD',
   EXPRESS = 'EXPRESS',
   SAME_DAY = 'SAME_DAY',
   NEXT_DAY = 'NEXT_DAY',
+  SDD = 'SDD',
+  NDD = 'NDD',
+}
+
+export enum UrbaneBoltServiceType {
   SDD = 'SDD',
   NDD = 'NDD',
 }
@@ -52,6 +62,30 @@ export enum AddressType {
   OFFICE = 'Office',
 }
 
+export enum HttpMethod {
+  GET = 'GET',
+  POST = 'POST',
+  PUT = 'PUT',
+  DELETE = 'DELETE',
+  PATCH = 'PATCH',
+}
+
+export enum CacheProvider {
+  REDIS = 'redis',
+  MEMORY = 'memory',
+}
+
+export enum DatabaseDialect {
+  SQLITE = 'sqlite',
+  POSTGRES = 'postgres',
+}
+
+export enum Environment {
+  DEVELOPMENT = 'development',
+  PRODUCTION = 'production',
+  TEST = 'test',
+}
+
 export enum LogFormat {
   JSON = 'json',
   TEXT = 'text',
@@ -62,6 +96,27 @@ export enum LogLevel {
   INFO = 'info',
   WARN = 'warn',
   ERROR = 'error',
+}
+
+export enum StatusKeyword {
+  UNDELIVER = 'UNDELIVER',
+  NOTDELIVER = 'NOTDELIVER',
+  FAIL = 'FAIL',
+  REJECT = 'REJECT',
+  RTO = 'RTO',
+  RETURN = 'RETURN',
+  EXCEPTION = 'EXCEPTION',
+  CANCEL = 'CANCEL',
+  OUTFOR = 'OUTFOR',
+  OFD = 'OFD',
+  TRANSIT = 'TRANSIT',
+  REACHED = 'REACHED',
+  HUB = 'HUB',
+  SORT = 'SORT',
+  DELIVER = 'DELIVER',
+  PICK = 'PICK',
+  COLLECTED = 'COLLECTED',
+  DISPATCHED = 'DISPATCHED',
 }
 
 export const SUPPORTED_COURIERS = [

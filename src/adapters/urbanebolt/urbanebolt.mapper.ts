@@ -1,5 +1,13 @@
 import { config } from '../../config';
-import { ShipmentStatus, PaymentMode } from '../../constants/courier.constants';
+import {
+  ShipmentStatus,
+  PaymentMode,
+  CourierPartnerName,
+  UrbaneBoltPayMode,
+  UrbaneBoltServiceType,
+  AddressType,
+  StatusKeyword,
+} from '../../constants/courier.constants';
 import {
   NormalizedCreateOrderRequest,
   NormalizedCreateOrderResponse,
@@ -56,16 +64,17 @@ export class UrbaneBoltMapper {
       breadth: Number(pkg.breadth_cm) || 10,
       pieces: Number(pkg.items_count) || 1,
       weight: Number(pkg.weight_kg) || 0.5,
-      serviceType: serviceType || 'SDD',
+      serviceType: serviceType || UrbaneBoltServiceType.SDD,
     };
   }
 
   /**
-   * Maps payment mode and collectable values.
+   * Maps payment mode and collectable values using enums.
    */
   private static mapPaymentProperties(payment: PaymentDetails) {
-    const payMode = payment.payment_mode === PaymentMode.COD ? 'COD' : 'PPD';
-    const collectableValue = payMode === 'COD' ? Number(payment.collectable_amount) || 0 : 0;
+    const payMode =
+      payment.payment_mode === PaymentMode.COD ? UrbaneBoltPayMode.COD : UrbaneBoltPayMode.PPD;
+    const collectableValue = payMode === UrbaneBoltPayMode.COD ? Number(payment.collectable_amount) || 0 : 0;
 
     return {
       payMode,
@@ -87,7 +96,7 @@ export class UrbaneBoltMapper {
       shprCountry: sender.country || 'India',
       shprMobile: sender.phone,
       shprEmail: sender.email || 'seller@urbanebolt.com',
-      shprAddressType: sender.address_type || 'Seller',
+      shprAddressType: sender.address_type || AddressType.SELLER,
     };
   }
 
@@ -104,7 +113,7 @@ export class UrbaneBoltMapper {
       consCountry: recipient.country || 'India',
       consMobile: recipient.phone,
       consEmail: recipient.email || 'customer@urbanebolt.com',
-      consAddressType: recipient.address_type || 'Home',
+      consAddressType: recipient.address_type || AddressType.HOME,
     };
   }
 
@@ -121,7 +130,7 @@ export class UrbaneBoltMapper {
       rtnCountry: returnAddress.country || 'India',
       rtnMobile: returnAddress.phone,
       rtnEmail: returnAddress.email || 'returns@urbanebolt.com',
-      rtnAddressType: returnAddress.address_type || 'Seller',
+      rtnAddressType: returnAddress.address_type || AddressType.SELLER,
     };
   }
 
@@ -163,7 +172,7 @@ export class UrbaneBoltMapper {
 
     return {
       order_id: originalRequest.order_id,
-      courier_partner: 'urbanebolt',
+      courier_partner: CourierPartnerName.URBANEBOLT,
       courier_order_id: courierOrderId,
       awb_number: awbNumber,
       status: ShipmentStatus.CREATED,
@@ -189,7 +198,7 @@ export class UrbaneBoltMapper {
 
     return {
       order_id: orderId || String(trackingData.orderNumber || ''),
-      courier_partner: 'urbanebolt',
+      courier_partner: CourierPartnerName.URBANEBOLT,
       awb_number: awbNumber,
       status: currentStatus,
       current_status_description: String(trackingData.current_status || trackingData.status || currentStatus),
@@ -246,7 +255,7 @@ export class UrbaneBoltMapper {
 
     return {
       order_id: orderId || '',
-      courier_partner: 'urbanebolt',
+      courier_partner: CourierPartnerName.URBANEBOLT,
       awb_number: awbNumber,
       status: ShipmentStatus.CANCELLED,
       cancelled_at: new Date().toISOString(),
@@ -256,48 +265,52 @@ export class UrbaneBoltMapper {
   }
 
   /**
-   * Maps courier specific status strings to internal normalized ShipmentStatus enum.
+   * Maps courier specific status strings to internal normalized ShipmentStatus enum using StatusKeyword enums.
    */
   public static mapStatus(rawStatus: string): ShipmentStatus {
     const normalized = rawStatus.toUpperCase().replace(/[\s-_]/g, '');
 
     // 1. Failure / Exception states (check first)
     if (
-      normalized.includes('UNDELIVER') ||
-      normalized.includes('NOTDELIVER') ||
-      normalized.includes('FAIL') ||
-      normalized.includes('REJECT') ||
-      normalized.includes('RTO') ||
-      normalized.includes('RETURN') ||
-      normalized.includes('EXCEPTION')
+      normalized.includes(StatusKeyword.UNDELIVER) ||
+      normalized.includes(StatusKeyword.NOTDELIVER) ||
+      normalized.includes(StatusKeyword.FAIL) ||
+      normalized.includes(StatusKeyword.REJECT) ||
+      normalized.includes(StatusKeyword.RTO) ||
+      normalized.includes(StatusKeyword.RETURN) ||
+      normalized.includes(StatusKeyword.EXCEPTION)
     ) {
       return ShipmentStatus.FAILED;
     }
 
     // 2. Cancellation
-    if (normalized.includes('CANCEL')) {
+    if (normalized.includes(StatusKeyword.CANCEL)) {
       return ShipmentStatus.CANCELLED;
     }
 
     // 3. Out for delivery / Transit states
     if (
-      normalized.includes('OUTFOR') ||
-      normalized.includes('OFD') ||
-      normalized.includes('TRANSIT') ||
-      normalized.includes('REACHED') ||
-      normalized.includes('HUB') ||
-      normalized.includes('SORT')
+      normalized.includes(StatusKeyword.OUTFOR) ||
+      normalized.includes(StatusKeyword.OFD) ||
+      normalized.includes(StatusKeyword.TRANSIT) ||
+      normalized.includes(StatusKeyword.REACHED) ||
+      normalized.includes(StatusKeyword.HUB) ||
+      normalized.includes(StatusKeyword.SORT)
     ) {
       return ShipmentStatus.IN_TRANSIT;
     }
 
     // 4. Delivered
-    if (normalized.includes('DELIVER')) {
+    if (normalized.includes(StatusKeyword.DELIVER)) {
       return ShipmentStatus.DELIVERED;
     }
 
     // 5. Picked up / Dispatched
-    if (normalized.includes('PICK') || normalized.includes('COLLECTED') || normalized.includes('DISPATCHED')) {
+    if (
+      normalized.includes(StatusKeyword.PICK) ||
+      normalized.includes(StatusKeyword.COLLECTED) ||
+      normalized.includes(StatusKeyword.DISPATCHED)
+    ) {
       return ShipmentStatus.PICKED_UP;
     }
 

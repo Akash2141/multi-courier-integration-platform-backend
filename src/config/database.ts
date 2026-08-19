@@ -1,15 +1,16 @@
 import { Sequelize, Options } from 'sequelize';
 import { config } from './index';
 import { logger } from '../logger';
+import { DatabaseDialect, Environment } from '../constants/courier.constants';
 
-const isTest = process.env.NODE_ENV === 'test';
+const isTest = process.env.NODE_ENV === Environment.TEST;
 
 let sequelize: Sequelize;
 
 if (isTest && process.env.USE_TEST_POSTGRES !== 'true') {
   // Use in-memory SQLite for automated tests
   sequelize = new Sequelize({
-    dialect: 'sqlite',
+    dialect: DatabaseDialect.SQLITE,
     storage: ':memory:',
     logging: false,
     define: {
@@ -22,7 +23,7 @@ if (isTest && process.env.USE_TEST_POSTGRES !== 'true') {
 } else {
   // Production / Development PostgreSQL connection
   const sequelizeOptions: Options = {
-    dialect: 'postgres',
+    dialect: DatabaseDialect.POSTGRES,
     logging: config.database.logging ? (msg: string) => logger.debug(`[Sequelize] ${msg}`) : false,
     pool: {
       max: 20,

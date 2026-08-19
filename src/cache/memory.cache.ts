@@ -1,5 +1,5 @@
 import { ICacheService } from './cache.interface';
-import { logger } from '../logger';
+import { CacheProvider } from '../constants/courier.constants';
 
 interface CacheItem {
   value: string;
@@ -11,7 +11,7 @@ export class MemoryCacheService implements ICacheService {
   private readonly locks: Map<string, number> = new Map();
 
   public getProviderName(): string {
-    return 'memory';
+    return CacheProvider.MEMORY;
   }
 
   public async get(key: string): Promise<string | null> {

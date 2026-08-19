@@ -1,5 +1,6 @@
 import Redis, { Redis as RedisClient } from 'ioredis';
 import { ICacheService } from './cache.interface';
+import { CacheProvider } from '../constants/courier.constants';
 import { config } from '../config';
 import { logger } from '../logger';
 
@@ -55,7 +56,7 @@ export class RedisCacheService implements ICacheService {
   }
 
   public getProviderName(): string {
-    return 'redis';
+    return CacheProvider.REDIS;
   }
 
   public async get(key: string): Promise<string | null> {

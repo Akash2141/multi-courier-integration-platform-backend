@@ -5,11 +5,11 @@ import {
   NormalizedTrackingResponse,
   NormalizedCancelResponse,
 } from '../../types/courier.types';
-import { ShipmentStatus } from '../../constants/courier.constants';
+import { ShipmentStatus, CourierPartnerName, ServiceType } from '../../constants/courier.constants';
 import { logger } from '../../logger';
 
 export class MockCourierAdapter implements ICourierAdapter {
-  public readonly partnerName = 'mock';
+  public readonly partnerName = CourierPartnerName.MOCK;
 
   /**
    * Simulates shipment creation with Mock Courier
@@ -30,7 +30,7 @@ export class MockCourierAdapter implements ICourierAdapter {
       waybill: awbNumber,
       booking_reference: courierOrderId,
       estimated_pickup: new Date(Date.now() + 4 * 3600 * 1000).toISOString(),
-      service: order.service_type || 'STANDARD',
+      service: order.service_type || ServiceType.STANDARD,
     };
 
     return {
@@ -86,7 +86,7 @@ export class MockCourierAdapter implements ICourierAdapter {
       raw_response: {
         provider: 'MockCourier',
         waybill: awbNumber,
-        status: 'IN_TRANSIT',
+        status: ShipmentStatus.IN_TRANSIT,
         location: 'Central Transit Hub - Delhi',
       },
     };

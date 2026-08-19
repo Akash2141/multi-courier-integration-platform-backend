@@ -3,8 +3,6 @@
 
 @baseUrl = http://localhost:3000
 @contentType = application/json
-@authToken = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-@sampleOrderId = ORD-SAMPLE-001
 
 # ==============================================================================
 # 0. System Health & Courier Discovery
@@ -27,8 +25,8 @@ POST {{baseUrl}}/api/v1/auth/register HTTP/1.1
 Content-Type: {{contentType}}
 
 {
-  "email": "engineer@futurevision.com",
-  "password": "SecurePassword123!",
+  "email": "akash@gmail.com",
+  "password": "Test123",
   "role": "ADMIN"
 }
 
@@ -38,8 +36,8 @@ POST {{baseUrl}}/api/v1/auth/login HTTP/1.1
 Content-Type: {{contentType}}
 
 {
-  "email": "engineer@futurevision.com",
-  "password": "SecurePassword123!"
+  "email": "akash@gmail.com",
+  "password": "Test123"
 }
 
 ### 5. Get Authenticated User Profile

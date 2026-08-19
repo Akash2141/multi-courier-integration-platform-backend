@@ -4,13 +4,14 @@ import { logger } from '../../logger';
 import { getRequestContext } from '../../logger/async-context';
 import { CourierError } from '../../errors';
 import { ErrorCode } from '../../constants/error.constants';
+import { HttpMethod, CourierPartnerName } from '../../constants/courier.constants';
 import { retryWithBackoff } from '../../utils/retry';
 import { cacheService } from '../../cache';
 import { UrbaneBoltAuthResponse } from './urbanebolt.types';
 
 export class UrbaneBoltClient {
   private readonly axiosInstance: AxiosInstance;
-  private readonly tokenCacheKey = 'courier:token:urbanebolt';
+  private readonly tokenCacheKey = `courier:token:${CourierPartnerName.URBANEBOLT}`;
   private isAuthenticating: Promise<string> | null = null;
 
   constructor() {
@@ -48,7 +49,7 @@ export class UrbaneBoltClient {
   private async fetchAndStoreNewAuthToken(): Promise<string> {
     const context = getRequestContext();
     logger.info('Authenticating with UrbaneBolt API (Distributed Cache Miss)...', {
-      courier: 'urbanebolt',
+      courier: CourierPartnerName.URBANEBOLT,
       endpoint: '/auth/getToken/',
       cacheProvider: cacheService.getProviderName(),
       requestId: context.requestId,
@@ -69,7 +70,7 @@ export class UrbaneBoltClient {
       if (!token) {
         throw new CourierError(
           'Failed to obtain authentication token from UrbaneBolt: Invalid response structure',
-          'urbanebolt',
+          CourierPartnerName.URBANEBOLT,
           ErrorCode.COURIER_AUTH_ERROR,
           502,
           data
@@ -78,11 +79,11 @@ export class UrbaneBoltClient {
 
       const stringToken = String(token);
 
-      // Store in distributed Redis / Memory cache with 12 hours TTL (43200 seconds)
+      // Store in distributed Redis / Memory cache
       await cacheService.set(this.tokenCacheKey, stringToken, config.redis.ttlSeconds);
 
       logger.info('UrbaneBolt authentication successful token saved to distributed cache.', {
-        courier: 'urbanebolt',
+        courier: CourierPartnerName.URBANEBOLT,
         cacheProvider: cacheService.getProviderName(),
         ttlSeconds: config.redis.ttlSeconds,
         requestId: context.requestId,
@@ -93,14 +94,14 @@ export class UrbaneBoltClient {
       await cacheService.del(this.tokenCacheKey);
 
       logger.error('UrbaneBolt authentication failed:', {
-        courier: 'urbanebolt',
+        courier: CourierPartnerName.URBANEBOLT,
         requestId: context.requestId,
         error: error instanceof Error ? error.message : error,
       });
 
       throw new CourierError(
         'Courier authentication failed with UrbaneBolt',
-        'urbanebolt',
+        CourierPartnerName.URBANEBOLT,
         ErrorCode.COURIER_AUTH_ERROR,
         502,
         axios.isAxiosError(error) ? error.response?.data : undefined
@@ -114,7 +115,7 @@ export class UrbaneBoltClient {
    * Executes an authenticated HTTP request with auto-retry and backoff.
    */
   public async request<T = unknown>(
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: HttpMethod | 'GET' | 'POST' | 'PUT' | 'DELETE',
     url: string,
     data?: unknown,
     params?: Record<string, unknown>,
@@ -149,7 +150,7 @@ export class UrbaneBoltClient {
       shouldRetry: (err) => err instanceof CourierError && err.isRetryable,
       onRetry: (_err, attempt, delayMs) => {
         logger.warn(`Retrying UrbaneBolt API call (attempt ${attempt}/${config.courier.retryAttempts}) in ${delayMs}ms`, {
-          courier: 'urbanebolt',
+          courier: CourierPartnerName.URBANEBOLT,
           url,
         });
       },
@@ -161,7 +162,7 @@ export class UrbaneBoltClient {
    */
   private async handleAxiosRequestError<T>(
     error: unknown,
-    method: 'GET' | 'POST' | 'PUT' | 'DELETE',
+    method: HttpMethod | 'GET' | 'POST' | 'PUT' | 'DELETE',
     url: string,
     data?: unknown,
     params?: Record<string, unknown>,
@@ -178,7 +179,7 @@ export class UrbaneBoltClient {
     // 1. Auth failure -> globally invalidate distributed cache and retry once
     if ((status === 401 || status === 403) && !hasRetriedAuth) {
       logger.warn('UrbaneBolt returned 401/403. Invalidating distributed cache token and retrying...', {
-        courier: 'urbanebolt',
+        courier: CourierPartnerName.URBANEBOLT,
         url,
         requestId: context.requestId,
       });
@@ -202,7 +203,7 @@ export class UrbaneBoltClient {
    */
   private createClientError(status: number, rawData: unknown, url: string, context: Record<string, unknown>): CourierError {
     logger.warn('UrbaneBolt returned client error (4xx):', {
-      courier: 'urbanebolt',
+      courier: CourierPartnerName.URBANEBOLT,
       status,
       url,
       responseData: rawData,
@@ -212,7 +213,7 @@ export class UrbaneBoltClient {
 
     return new CourierError(
       `UrbaneBolt rejected the request: ${this.extractErrorMessage(rawData) || 'Invalid request parameters'}`,
-      'urbanebolt',
+      CourierPartnerName.URBANEBOLT,
       ErrorCode.COURIER_BAD_REQUEST,
       400,
       rawData,
@@ -227,7 +228,7 @@ export class UrbaneBoltClient {
     const isTimeout = error.code === 'ECONNABORTED' || error.message?.includes('timeout');
 
     logger.error('UrbaneBolt API network/server error:', {
-      courier: 'urbanebolt',
+      courier: CourierPartnerName.URBANEBOLT,
       status: error.response?.status,
       code: error.code,
       message: error.message,
@@ -239,7 +240,7 @@ export class UrbaneBoltClient {
 
     return new CourierError(
       isTimeout ? 'UrbaneBolt courier API timed out' : 'UrbaneBolt courier service is currently unavailable',
-      'urbanebolt',
+      CourierPartnerName.URBANEBOLT,
       isTimeout ? ErrorCode.COURIER_TIMEOUT : ErrorCode.COURIER_SERVICE_UNAVAILABLE,
       isTimeout ? 504 : 502,
       rawData,

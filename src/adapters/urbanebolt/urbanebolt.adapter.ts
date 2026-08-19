@@ -5,13 +5,14 @@ import {
   NormalizedTrackingResponse,
   NormalizedCancelResponse,
 } from '../../types/courier.types';
+import { CourierPartnerName, HttpMethod } from '../../constants/courier.constants';
 import { UrbaneBoltClient } from './urbanebolt.client';
 import { UrbaneBoltMapper } from './urbanebolt.mapper';
 import { UrbaneBoltCancelRequest } from './urbanebolt.types';
 import { logger } from '../../logger';
 
 export class UrbaneBoltAdapter implements ICourierAdapter {
-  public readonly partnerName = 'urbanebolt';
+  public readonly partnerName = CourierPartnerName.URBANEBOLT;
   private readonly client: UrbaneBoltClient;
 
   constructor(client?: UrbaneBoltClient) {
@@ -32,7 +33,7 @@ export class UrbaneBoltAdapter implements ICourierAdapter {
     });
 
     const rawResponse = await this.client.request<unknown>(
-      'POST',
+      HttpMethod.POST,
       '/services/manifest/',
       payload
     );
@@ -58,7 +59,7 @@ export class UrbaneBoltAdapter implements ICourierAdapter {
     });
 
     const rawResponse = await this.client.request<unknown>(
-      'GET',
+      HttpMethod.GET,
       '/services/tracking-pub/',
       undefined,
       { awb: awbNumber }
@@ -85,7 +86,7 @@ export class UrbaneBoltAdapter implements ICourierAdapter {
     };
 
     const rawResponse = await this.client.request<unknown>(
-      'POST',
+      HttpMethod.POST,
       '/services/cancel/',
       payload
     );
