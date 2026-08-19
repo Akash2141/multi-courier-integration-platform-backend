@@ -20,6 +20,12 @@ export interface AppConfig {
     logging: boolean;
     syncAlter: boolean;
   };
+  redis: {
+    url?: string;
+    enabled: boolean;
+    keyPrefix: string;
+    ttlSeconds: number;
+  };
   courier: {
     timeoutMs: number;
     retryAttempts: number;
@@ -49,6 +55,12 @@ export const config: AppConfig = {
     url: process.env.DATABASE_URL || 'postgres://postgres:postgres@localhost:5432/courier_hub',
     logging: process.env.DB_LOGGING === 'true',
     syncAlter: process.env.DB_SYNC_ALTER !== 'false',
+  },
+  redis: {
+    url: process.env.REDIS_URL,
+    enabled: Boolean(process.env.REDIS_URL && process.env.REDIS_URL.trim().length > 0),
+    keyPrefix: process.env.REDIS_KEY_PREFIX || 'courier_platform:',
+    ttlSeconds: parseInt(process.env.REDIS_DEFAULT_TTL_SECONDS || '43200', 10), // 12 hours
   },
   courier: {
     timeoutMs: parseInt(process.env.COURIER_TIMEOUT_MS || '10000', 10),

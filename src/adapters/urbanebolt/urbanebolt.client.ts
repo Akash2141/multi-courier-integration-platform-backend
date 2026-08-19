@@ -5,12 +5,12 @@ import { getRequestContext } from '../../logger/async-context';
 import { CourierError } from '../../errors';
 import { ErrorCode } from '../../constants/error.constants';
 import { retryWithBackoff } from '../../utils/retry';
+import { cacheService } from '../../cache';
 import { UrbaneBoltAuthResponse } from './urbanebolt.types';
 
 export class UrbaneBoltClient {
   private readonly axiosInstance: AxiosInstance;
-  private cachedToken: string | null = null;
-  private tokenExpiresAt: number = 0;
+  private readonly tokenCacheKey = 'courier:token:urbanebolt';
   private isAuthenticating: Promise<string> | null = null;
 
   constructor() {
@@ -24,31 +24,33 @@ export class UrbaneBoltClient {
   }
 
   /**
-   * Authenticates with UrbaneBolt UAT API and caches the bearer token.
+   * Authenticates with UrbaneBolt UAT API and caches the bearer token in Redis/Memory cache.
    */
   public async getAuthToken(forceRefresh = false): Promise<string> {
-    const now = Date.now();
-
-    if (!forceRefresh && this.cachedToken && now < this.tokenExpiresAt - 300000) {
-      return this.cachedToken;
+    if (!forceRefresh) {
+      const cachedToken = await cacheService.get(this.tokenCacheKey);
+      if (cachedToken) {
+        return cachedToken;
+      }
     }
 
     if (this.isAuthenticating) {
       return this.isAuthenticating;
     }
 
-    this.isAuthenticating = this.fetchNewAuthToken();
+    this.isAuthenticating = this.fetchAndStoreNewAuthToken();
     return this.isAuthenticating;
   }
 
   /**
-   * Performs the HTTP call to obtain a new token.
+   * Performs the HTTP call to obtain a new token and stores it in distributed cache.
    */
-  private async fetchNewAuthToken(): Promise<string> {
+  private async fetchAndStoreNewAuthToken(): Promise<string> {
     const context = getRequestContext();
-    logger.info('Authenticating with UrbaneBolt API...', {
+    logger.info('Authenticating with UrbaneBolt API (Distributed Cache Miss)...', {
       courier: 'urbanebolt',
       endpoint: '/auth/getToken/',
+      cacheProvider: cacheService.getProviderName(),
       requestId: context.requestId,
     });
 
@@ -74,18 +76,22 @@ export class UrbaneBoltClient {
         );
       }
 
-      this.cachedToken = String(token);
-      this.tokenExpiresAt = Date.now() + 12 * 60 * 60 * 1000;
+      const stringToken = String(token);
 
-      logger.info('UrbaneBolt authentication successful token cached.', {
+      // Store in distributed Redis / Memory cache with 12 hours TTL (43200 seconds)
+      await cacheService.set(this.tokenCacheKey, stringToken, config.redis.ttlSeconds);
+
+      logger.info('UrbaneBolt authentication successful token saved to distributed cache.', {
         courier: 'urbanebolt',
+        cacheProvider: cacheService.getProviderName(),
+        ttlSeconds: config.redis.ttlSeconds,
         requestId: context.requestId,
       });
 
-      return this.cachedToken;
+      return stringToken;
     } catch (error: unknown) {
-      this.cachedToken = null;
-      this.tokenExpiresAt = 0;
+      await cacheService.del(this.tokenCacheKey);
+
       logger.error('UrbaneBolt authentication failed:', {
         courier: 'urbanebolt',
         requestId: context.requestId,
@@ -169,13 +175,15 @@ export class UrbaneBoltClient {
     const rawResponseData = error.response?.data;
     const context = getRequestContext();
 
-    // 1. Auth failure -> auto-refresh and 1 retry
+    // 1. Auth failure -> globally invalidate distributed cache and retry once
     if ((status === 401 || status === 403) && !hasRetriedAuth) {
-      logger.warn('UrbaneBolt returned 401/403. Refreshing token and retrying request...', {
+      logger.warn('UrbaneBolt returned 401/403. Invalidating distributed cache token and retrying...', {
         courier: 'urbanebolt',
         url,
         requestId: context.requestId,
       });
+
+      await cacheService.del(this.tokenCacheKey);
       await this.getAuthToken(true);
       return this.request<T>(method, url, data, params, true);
     }

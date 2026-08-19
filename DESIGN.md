@@ -177,11 +177,17 @@ Aggregate Results (Maintains Order & Supports Partial Success)
 
 ## 5. Resiliency & Error Handling
 
-### 5.1 Courier Token Management & Auto-Refresh
-UrbaneBolt uses token-based authentication. The `UrbaneBoltClient`:
-1. Authenticates against `/api/v1/auth/getToken/` and caches the bearer token in memory with an expiration timestamp.
-2. In-flight token requests are deduplicated using a shared promise to prevent authentication stampedes.
-3. If any API call returns `401 Unauthorized` or `403 Forbidden`, the client automatically invalidates the cache, re-authenticates, and retries the request once.
+### 5.1 Distributed Courier Token Management & Multi-Pod Redis Cache
+UrbaneBolt uses token-based authentication. In multi-pod production environments (e.g. Kubernetes, AWS ECS, PM2 clusters), storing tokens solely in a local memory heap causes redundant authentication requests and out-of-sync invalidations. The platform implements a **Pluggable Distributed Cache Architecture (`ICacheService`)**:
+1. **Centralized Redis Caching (`RedisCacheService`)**:
+   - The bearer token is stored under `courier_platform:courier:token:urbanebolt` with a 12-hour TTL.
+   - When **Pod 1** fetches a token, **all other pods** read that exact same token in `< 1ms` without making external auth calls.
+2. **Distributed Lock (Stampede Prevention)**:
+   - Uses atomic Redis `SET ... NX EX` locks so only one pod refreshes the token on expiration, preventing thundering herds.
+3. **Cluster-Wide Invalidation on `401 Unauthorized`**:
+   - If any pod receives an expired token error from UrbaneBolt, it deletes the Redis key `DEL courier_platform:courier:token:urbanebolt`, instantly refreshing the token across the entire cluster.
+4. **Zero-Dependency Local Fallback (`MemoryCacheService`)**:
+   - If `REDIS_URL` is omitted (local development and offline CI tests), the system gracefully switches to an in-memory TTL cache without crashing or requiring infrastructure.
 
 ### 5.2 Exponential Backoff with Jitter
 For transient errors (5xx server errors, network drops, `ECONNABORTED` timeouts):

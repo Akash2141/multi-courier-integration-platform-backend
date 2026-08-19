@@ -19,6 +19,20 @@ services:
       timeout: 5s
       retries: 5
 
+  redis:
+    image: redis:7-alpine
+    container_name: courier_redis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: .
@@ -27,6 +41,8 @@ services:
     restart: always
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     ports:
       - '3000:3000'
@@ -40,6 +56,9 @@ services:
       DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/courier_hub
       DB_LOGGING: 'false'
       DB_SYNC_ALTER: 'true'
+      REDIS_URL: redis://redis:6379
+      REDIS_KEY_PREFIX: courier_platform:
+      REDIS_DEFAULT_TTL_SECONDS: 43200
       URBANEBOLT_BASE_URL: https://uat.urbanebolt.in/api/v1
       URBANEBOLT_USERNAME: info@urbanebolt.com
       URBANEBOLT_PASSWORD: EKIcygsLVV5RCtPZ
@@ -51,3 +70,4 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:

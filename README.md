@@ -69,6 +69,9 @@ cp .env.example .env
 | `DATABASE_URL` | String | `postgres://...` | PostgreSQL connection URL (e.g. `postgres://user:pass@localhost:5432/courier_hub`) |
 | `DB_LOGGING` | Boolean | `false` | Enable SQL query logging in Winston |
 | `DB_SYNC_ALTER` | Boolean | `true` | Automatically synchronize database schema with Sequelize |
+| `REDIS_URL` | String | *optional* | Redis URL for distributed multi-pod token caching (e.g. `redis://localhost:6379`). Falls back to in-memory cache if omitted. |
+| `REDIS_KEY_PREFIX` | String | `courier_platform:` | Namespace prefix for Redis cache keys |
+| `REDIS_DEFAULT_TTL_SECONDS` | Number | `43200` | Token cache TTL in seconds (default 12 hours) |
 | `URBANEBOLT_BASE_URL` | String | `https://uat.urbanebolt.in/api/v1` | UrbaneBolt UAT API base endpoint |
 | `URBANEBOLT_USERNAME` | String | `info@urbanebolt.com` | UrbaneBolt account username/email |
 | `URBANEBOLT_PASSWORD` | String | `EKIcygsLVV5RCtPZ` | UrbaneBolt account password |
