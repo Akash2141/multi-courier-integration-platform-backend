@@ -14,9 +14,16 @@ A production-grade, extensible Node.js backend for an e-commerce logistics platf
   - PostgreSQL database with Sequelize ORM.
   - Full request/response payload audit logging (`JSONB`).
   - **Append-only tracking history** (`tracking_events`) recording status changes and raw timestamps.
+- **Crash-Resilient State Machine & Background Reconciliation**:
+  - **Two-Phase Dispatch**: Pre-persists orders with `status: PENDING_DISPATCH` before external courier calls.
+  - **Dedicated Worker Service (`src/worker.ts`)**: Standalone background worker recovering abandoned orders with **Redis Distributed Leader Locks**.
+- **Distributed Token Caching (Redis / Multi-Pod)**:
+  - Centralized token sharing across all pods with sub-millisecond retrieval.
+  - Cluster-wide invalidation on `401 Unauthorized`.
+  - Zero-dependency in-memory fallback for local development and offline testing.
 - **Bulk Order Processing (Up to 100 Orders)**:
   - High-performance concurrent processing via controlled worker pools (`BULK_CONCURRENCY_LIMIT`).
-  - Partial success handling (e.g., 95 succeeded, 5 failed) with per-order status breakdowns.
+  - Partial success handling (e.g., 95 succeeded, 5 failed) with per-order status breakdowns (`HTTP 207 Multi-Status`).
   - Idempotent on `order_id` to prevent duplicate shipment creation.
 - **Resilience & Fault Tolerance**:
   - Exponential backoff retry with jitter for transient errors (5xx, timeouts, network drops).
@@ -29,7 +36,7 @@ A production-grade, extensible Node.js backend for an e-commerce logistics platf
 - **Winston Logging**:
   - Configurable format via `LOG_FORMAT=text` (colorized local format) or `LOG_FORMAT=json` (structured production format).
   - Contextual `requestId` and `orderId` tracing using `AsyncLocalStorage`.
-- **Docker Support**: Production multi-stage `Dockerfile` and `docker-compose.yml` with PostgreSQL.
+- **Docker & Micro-Process Support**: Multi-stage `Dockerfile` and `docker-compose.yml` supporting separate API server and background reconciliation worker containers.
 
 ---
 
@@ -40,6 +47,7 @@ A production-grade, extensible Node.js backend for an e-commerce logistics platf
 | **Node.js 20+ & TypeScript** | Strongly typed runtime |
 | **Express.js** | Web framework |
 | **Sequelize ORM & PostgreSQL** | Relational data persistence & connection pooling |
+| **Redis & ioredis** | Distributed token caching & leader lock synchronization |
 | **AJV (Another JSON Schema Validator)** | Request schema validation |
 | **Winston** | Configurable structured & text logging |
 | **Helmet & CORS** | HTTP security & header enforcement |
@@ -72,6 +80,8 @@ cp .env.example .env
 | `REDIS_URL` | String | *optional* | Redis URL for distributed multi-pod token caching (e.g. `redis://localhost:6379`). Falls back to in-memory cache if omitted. |
 | `REDIS_KEY_PREFIX` | String | `courier_platform:` | Namespace prefix for Redis cache keys |
 | `REDIS_DEFAULT_TTL_SECONDS` | Number | `43200` | Token cache TTL in seconds (default 12 hours) |
+| `RECONCILIATION_INTERVAL_MS` | Number | `60000` | Background worker reconciliation interval (in ms) |
+| `RECONCILIATION_STALE_THRESHOLD_MS` | Number | `60000` | Threshold to treat PENDING_DISPATCH as stale (in ms) |
 | `URBANEBOLT_BASE_URL` | String | `https://uat.urbanebolt.in/api/v1` | UrbaneBolt UAT API base endpoint |
 | `URBANEBOLT_USERNAME` | String | `info@urbanebolt.com` | UrbaneBolt account username/email |
 | `URBANEBOLT_PASSWORD` | String | `EKIcygsLVV5RCtPZ` | UrbaneBolt account password |
@@ -97,21 +107,27 @@ npm install
 # Build TypeScript
 npm run build
 
-# Run unit and integration tests (uses in-memory SQLite for automated tests)
+# Run unit and integration tests (9 test suites, 31 tests)
 npm test
 
 # Run tests with coverage report
 npm run test:coverage
 
-# Start development server with live reload
+# Start development API server with live reload
 npm run dev
 
-# Start production server
+# Start development background worker process
+npm run dev:worker
+
+# Start production API server
 npm start
+
+# Start production dedicated worker process
+npm run start:worker
 ```
 
 ### 3. Running with Docker Compose
-To spin up both the backend application and a dedicated PostgreSQL database container:
+To spin up the API server, dedicated background worker, PostgreSQL, and Redis:
 
 ```bash
 docker-compose up --build
@@ -298,7 +314,7 @@ export const initAdapters = (): void => {
 ## Running the Automated Test Suite
 
 ```bash
-# Run all unit and integration tests
+# Run all unit and integration tests (9 test suites, 31 tests)
 npm test
 
 # Run tests with code coverage
@@ -310,9 +326,11 @@ Test coverage includes:
 2. `tests/unit/courier-registry.test.ts` (Dynamic registry & error handling)
 3. `tests/unit/validation.test.ts` (AJV schema validation rules & bounds)
 4. `tests/unit/retry.test.ts` (Exponential backoff & retry mechanics)
-5. `tests/integration/order.api.test.ts` (Order creation, tracking, cancellation, idempotency)
-6. `tests/integration/bulk-order.api.test.ts` (Concurrent multi-partner bulk processing)
-7. `tests/integration/auth.api.test.ts` (JWT registration, login & authenticated requests)
+5. `tests/unit/cache.test.ts` (Redis and In-memory caching & distributed locks)
+6. `tests/unit/reconciliation-worker.test.ts` (Order recovery & state-machine lifecycle)
+7. `tests/integration/order.api.test.ts` (Order creation, tracking, cancellation, idempotency)
+8. `tests/integration/bulk-order.api.test.ts` (Concurrent multi-partner bulk processing)
+9. `tests/integration/auth.api.test.ts` (JWT registration, login & authenticated requests)
 
 ---
 
