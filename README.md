@@ -22,6 +22,7 @@ A production-grade, extensible Node.js backend for an e-commerce logistics platf
   - Cluster-wide invalidation on `401 Unauthorized`.
   - Zero-dependency in-memory fallback for local development and offline testing.
 - **Bulk Order Processing (Up to 100 Orders)**:
+  - **Bulk Pre-Persistence (Outbox Pattern)**: Inserts all 100 orders into PostgreSQL as `PENDING_DISPATCH` in one query before execution, guaranteeing zero lost orders if the server crashes.
   - High-performance concurrent processing via controlled worker pools (`BULK_CONCURRENCY_LIMIT`).
   - Partial success handling (e.g., 95 succeeded, 5 failed) with per-order status breakdowns (`HTTP 207 Multi-Status`).
   - Idempotent on `order_id` to prevent duplicate shipment creation.

@@ -196,6 +196,7 @@ Aggregate Results (Maintains Order & Supports Partial Success)
 | **Controlled Worker Pool** | 🚀 High Throughput (~2-3s) | 🛡️ Predictable & Safe | Low | **Selected** |
 | **Background Message Queue (BullMQ/Redis)** | 🚀 Async Response | Requires Redis Infrastructure | Medium | Discussed for scale (>1000 orders) |
 
+- **Bulk Pre-Persistence (Bulk Outbox Pattern)**: Before the concurrency pool starts, the system executes a single `Order.bulkCreate(records, { ignoreDuplicates: true })` inserting all 100 orders into PostgreSQL with `status: PENDING_DISPATCH` in ~5ms. If the pod crashes at Order 1, the remaining 99 orders are guaranteed to be saved on PostgreSQL disk, allowing the background `OrderReconciliationWorker` to autonomously pick them up and complete courier bookings without data loss.
 - **Partial Success Handling**: Each order in the batch is isolated. If 95 succeed and 5 fail, the endpoint returns `HTTP 207 Multi-Status` with clear per-order status and field-level failure reasons.
 - **Idempotency Guarantee**: Submitting the same `order_id` twice detects the existing active order and marks it as `SKIPPED_IDEMPOTENT` without duplicate courier calls.
 
