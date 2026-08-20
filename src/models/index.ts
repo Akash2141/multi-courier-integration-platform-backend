@@ -1,8 +1,8 @@
 import { sequelize } from '../config/database';
-import { Order } from './order.model';
-import { TrackingEvent } from './tracking-event.model';
-import { User } from './user.model';
-import { BulkBatch } from './bulk-batch.model';
+import { Order, OrderAttributes, OrderCreationAttributes } from './order.model';
+import { TrackingEvent, TrackingEventAttributes, TrackingEventCreationAttributes } from './tracking-event.model';
+import { User, UserAttributes, UserCreationAttributes } from './user.model';
+import { BulkBatch, BulkBatchAttributes, BulkBatchCreationAttributes } from './bulk-batch.model';
 import { logger } from '../logger';
 
 // Set up associations
@@ -18,7 +18,21 @@ TrackingEvent.belongsTo(Order, {
   as: 'order',
 });
 
-export { sequelize, Order, TrackingEvent, User, BulkBatch };
+export {
+  sequelize,
+  Order,
+  OrderAttributes,
+  OrderCreationAttributes,
+  TrackingEvent,
+  TrackingEventAttributes,
+  TrackingEventCreationAttributes,
+  User,
+  UserAttributes,
+  UserCreationAttributes,
+  BulkBatch,
+  BulkBatchAttributes,
+  BulkBatchCreationAttributes,
+};
 
 export const initDatabase = async (): Promise<void> => {
   try {
