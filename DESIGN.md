@@ -32,9 +32,10 @@ The system decouples internal business logic and controllers from external couri
                                       v
        +-------------------------------------------------------------+
        |                     Order / Bulk Service                    |
+       |       - Two-Phase State Machine (PENDING_DISPATCH)          |
        |       - Idempotency Guarantee                               |
        |       - Audit Logging & Failure Recording                   |
-       |       - Concurrency Limiter Pool                            |
+       |       - Controlled Concurrency Pool                         |
        +------------------------------+------------------------------+
                                       |
                                       v
@@ -73,6 +74,30 @@ The system decouples internal business logic and controllers from external couri
 
 ---
 
+### 2.2 Process & Pod Decoupling (API vs Background Worker)
+
+To guarantee high API throughput and prevent cron/reconciliation background jobs from consuming HTTP server threads, the codebase is split into **two independent execution entrypoints**:
+
+```
+                            +--------------------------+
+                            |       PostgreSQL DB      |
+                            +------------+-------------+
+                                         |
+         +-------------------------------+-------------------------------+
+         |                                                               |
+         v                                                               v
++------------------------------------+          +------------------------------------+
+|         API Pods / Service         |          |       Worker Pods / Service        |
+|      (`src/server.ts` - HTTP)      |          |    (`src/worker.ts` - Background)  |
++------------------------------------+          +------------------------------------+
+| - Pure REST API & Route Handling   |          | - Dedicated Cron & Reconciliation  |
+| - Express Middleware & AJV Schema  |          | - Zero impact on HTTP latency      |
+| - Fast, Stateless scaling (1-50)   |          | - Redis Leader Lock Protection     |
++------------------------------------+          +------------------------------------+
+```
+
+---
+
 ## 3. Database Schema & Data Modeling
 
 The platform uses **PostgreSQL** managed through **Sequelize ORM** with connection pooling.
@@ -98,7 +123,8 @@ erDiagram
         string courier_partner "e.g., urbanebolt, mock"
         string courier_order_id "Partner internal ID"
         string awb_number "Tracking / Air Waybill number"
-        string status "CREATED | PICKED_UP | IN_TRANSIT | DELIVERED | CANCELLED | FAILED"
+        string status "PENDING_DISPATCH | CREATED | PICKED_UP | IN_TRANSIT | DELIVERED | CANCELLED | FAILED"
+        int retry_count "Number of dispatch attempts"
         jsonb raw_request_payload "Full payload sent to courier for audit"
         jsonb raw_response_payload "Full response received from courier"
         text failure_reason "Populated if courier call fails"
@@ -175,7 +201,7 @@ Aggregate Results (Maintains Order & Supports Partial Success)
 
 ---
 
-## 5. Resiliency & Error Handling
+## 5. Resiliency & Distributed State Management
 
 ### 5.1 Distributed Courier Token Management & Multi-Pod Redis Cache
 UrbaneBolt uses token-based authentication. In multi-pod production environments (e.g. Kubernetes, AWS ECS, PM2 clusters), storing tokens solely in a local memory heap causes redundant authentication requests and out-of-sync invalidations. The platform implements a **Pluggable Distributed Cache Architecture (`ICacheService`)**:
@@ -203,9 +229,10 @@ To prevent lost orders and unrecorded dispatches if a server pod crashes (OOM, c
 2. **Atomic Transition**:
    - On successful courier dispatch, the record atomically transitions to `status: CREATED` with `awb_number` and creates the initial append-only `TrackingEvent`.
    - On courier rejection, it transitions to `status: FAILED` with full failure audit logs.
-3. **Background Reconciliation Worker (`OrderReconciliationWorker`)**:
-   - A dedicated background worker periodically scans for stale orders stuck in `PENDING_DISPATCH` (e.g. `updated_at < NOW() - 60s`).
-   - Automatically picks up abandoned orders, increments `retry_count`, and completes courier dispatch and AWB generation without manual operator intervention.
+3. **Dedicated Background Reconciliation Worker (`OrderReconciliationWorker`)**:
+   - Runs in a separate process (`src/worker.ts`) and periodically scans for stale orders stuck in `PENDING_DISPATCH` (`updated_at < NOW() - 60s`).
+   - **Distributed Leader Lock**: Uses `cacheService.acquireLock('worker:order_reconciliation:leader_lock', 55)` so that in multi-worker replica setups, only one leader worker processes each cycle.
+   - Automatically recovers abandoned orders, increments `retry_count`, and manifests them with the courier partner.
 
 ### 5.4 Single Normalized Error Response Structure
 All errors (validation, auth, courier, database) conform to a unified contract:
