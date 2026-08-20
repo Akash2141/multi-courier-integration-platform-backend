@@ -65,7 +65,12 @@ export class UrbaneBoltClient {
       );
 
       const data = response.data;
-      const token = data.token || data.access || data.jwt || (typeof data === 'string' ? data : null);
+      const token =
+        data.access_token ||
+        data.token ||
+        data.access ||
+        data.jwt ||
+        (typeof data === 'string' ? data : null);
 
       if (!token) {
         throw new CourierError(

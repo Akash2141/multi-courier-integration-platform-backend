@@ -4,9 +4,13 @@ export interface UrbaneBoltAuthRequest {
 }
 
 export interface UrbaneBoltAuthResponse {
+  access_token?: string;
   token?: string;
   access?: string;
   jwt?: string;
+  expires_in?: number;
+  token_type?: string;
+  expires?: string;
   status?: string;
   message?: string;
   [key: string]: unknown;
