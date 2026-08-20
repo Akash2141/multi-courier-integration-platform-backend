@@ -10,6 +10,7 @@ export interface OrderAttributes {
   courier_order_id: string | null;
   awb_number: string | null;
   status: ShipmentStatus;
+  retry_count: number;
   raw_request_payload: unknown;
   raw_response_payload: unknown | null;
   failure_reason: string | null;
@@ -24,7 +25,15 @@ export interface OrderAttributes {
 
 export type OrderCreationAttributes = Optional<
   OrderAttributes,
-  'id' | 'courier_order_id' | 'awb_number' | 'raw_response_payload' | 'failure_reason' | 'service_type' | 'created_at' | 'updated_at'
+  | 'id'
+  | 'courier_order_id'
+  | 'awb_number'
+  | 'retry_count'
+  | 'raw_response_payload'
+  | 'failure_reason'
+  | 'service_type'
+  | 'created_at'
+  | 'updated_at'
 >;
 
 export class Order extends Model<OrderAttributes, OrderCreationAttributes> implements OrderAttributes {
@@ -34,6 +43,7 @@ export class Order extends Model<OrderAttributes, OrderCreationAttributes> imple
   declare public courier_order_id: string | null;
   declare public awb_number: string | null;
   declare public status: ShipmentStatus;
+  declare public retry_count: number;
   declare public raw_request_payload: unknown;
   declare public raw_response_payload: unknown | null;
   declare public failure_reason: string | null;
@@ -76,7 +86,12 @@ Order.init(
     status: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: ShipmentStatus.CREATED,
+      defaultValue: ShipmentStatus.PENDING_DISPATCH,
+    },
+    retry_count: {
+      type: DataTypes.INTEGER,
+      allowNull: false,
+      defaultValue: 0,
     },
     raw_request_payload: {
       type: JSON_TYPE,
@@ -119,6 +134,8 @@ Order.init(
       { fields: ['awb_number'] },
       { fields: ['courier_partner'] },
       { fields: ['status'] },
+      { fields: ['retry_count'] },
+      { fields: ['updated_at'] },
     ],
   }
 );

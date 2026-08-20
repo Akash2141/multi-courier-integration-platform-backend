@@ -196,7 +196,18 @@ For transient errors (5xx server errors, network drops, `ECONNABORTED` timeouts)
 - Random jitter (0.8x to 1.2x) prevents thundering herd synchronization.
 - 4xx client errors (e.g. invalid pincode) fail fast and are **not** retried.
 
-### 5.3 Single Normalized Error Response Structure
+### 5.3 Crash-Resilient Two-Phase State Machine & Order Reconciliation Worker
+To prevent lost orders and unrecorded dispatches if a server pod crashes (OOM, container restart, power failure) mid-retry:
+1. **Pre-Persistence (`PENDING_DISPATCH`)**:
+   - The platform inserts the order into PostgreSQL with `status: PENDING_DISPATCH` and `retry_count: 0` **before** executing the external courier HTTP call.
+2. **Atomic Transition**:
+   - On successful courier dispatch, the record atomically transitions to `status: CREATED` with `awb_number` and creates the initial append-only `TrackingEvent`.
+   - On courier rejection, it transitions to `status: FAILED` with full failure audit logs.
+3. **Background Reconciliation Worker (`OrderReconciliationWorker`)**:
+   - A dedicated background worker periodically scans for stale orders stuck in `PENDING_DISPATCH` (e.g. `updated_at < NOW() - 60s`).
+   - Automatically picks up abandoned orders, increments `retry_count`, and completes courier dispatch and AWB generation without manual operator intervention.
+
+### 5.4 Single Normalized Error Response Structure
 All errors (validation, auth, courier, database) conform to a unified contract:
 ```json
 {
