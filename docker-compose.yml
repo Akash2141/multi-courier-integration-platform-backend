@@ -39,6 +39,7 @@ services:
       dockerfile: Dockerfile
     container_name: courier_backend
     restart: always
+    command: npm run start
     depends_on:
       postgres:
         condition: service_healthy
@@ -67,6 +68,38 @@ services:
       COURIER_RETRY_ATTEMPTS: 3
       COURIER_RETRY_DELAY_MS: 1000
       BULK_CONCURRENCY_LIMIT: 10
+
+  reconciliation_worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: courier_reconciliation_worker
+    restart: always
+    command: npm run start:worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      LOG_FORMAT: json
+      LOG_LEVEL: info
+      DATABASE_URL: postgres://postgres:postgrespassword@postgres:5432/courier_hub
+      DB_LOGGING: 'false'
+      DB_SYNC_ALTER: 'false'
+      REDIS_URL: redis://redis:6379
+      REDIS_KEY_PREFIX: courier_platform:
+      REDIS_DEFAULT_TTL_SECONDS: 43200
+      RECONCILIATION_INTERVAL_MS: 60000
+      RECONCILIATION_STALE_THRESHOLD_MS: 60000
+      URBANEBOLT_BASE_URL: https://uat.urbanebolt.in/api/v1
+      URBANEBOLT_USERNAME: info@urbanebolt.com
+      URBANEBOLT_PASSWORD: EKIcygsLVV5RCtPZ
+      URBANEBOLT_CUSTOMER_CODE: UEBCUS0008
+      COURIER_TIMEOUT_MS: 10000
+      COURIER_RETRY_ATTEMPTS: 3
+      COURIER_RETRY_DELAY_MS: 1000
 
 volumes:
   postgres_data:

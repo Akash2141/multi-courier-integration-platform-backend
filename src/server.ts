@@ -3,20 +3,16 @@ import { app } from './app';
 import { config } from './config';
 import { logger } from './logger';
 import { initDatabase, sequelize } from './models';
-import { orderReconciliationWorker } from './workers/order-reconciliation.worker';
 
 let server: http.Server;
 
 const startServer = async (): Promise<void> => {
   try {
-    logger.info(`Starting Multi-Courier Integration Platform backend [ENV: ${config.env}]...`);
+    logger.info(`Starting Multi-Courier Integration Platform API [ENV: ${config.env}]...`);
     logger.info(`Logging configured: Format='${config.logging.format}', Level='${config.logging.level}'`);
 
     // Connect to PostgreSQL database and sync models
     await initDatabase();
-
-    // Start background order reconciliation worker
-    orderReconciliationWorker.start();
 
     // Start HTTP Server
     server = app.listen(config.port, () => {
@@ -31,10 +27,7 @@ const startServer = async (): Promise<void> => {
 };
 
 const gracefulShutdown = async (signal: string): Promise<void> => {
-  logger.info(`Received ${signal}. Gracefully shutting down...`);
-
-  // Stop background reconciliation worker
-  orderReconciliationWorker.stop();
+  logger.info(`Received ${signal}. Gracefully shutting down API server...`);
 
   if (server) {
     server.close(async () => {

@@ -6,7 +6,9 @@
   "scripts": {
     "build": "rimraf dist && tsc",
     "start": "node dist/server.js",
+    "start:worker": "node dist/worker.js",
     "dev": "nodemon --watch src --ext ts --exec ts-node src/server.ts",
+    "dev:worker": "nodemon --watch src --ext ts --exec ts-node src/worker.ts",
     "test": "NODE_ENV=test jest --runInBand --detectOpenHandles --forceExit",
     "test:watch": "NODE_ENV=test jest --watch",
     "test:coverage": "NODE_ENV=test jest --coverage --runInBand --detectOpenHandles --forceExit"

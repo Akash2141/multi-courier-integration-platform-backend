@@ -4,6 +4,7 @@ import { courierRegistry } from '../adapters/courier.registry';
 import { ShipmentStatus } from '../constants/courier.constants';
 import { config } from '../config';
 import { logger } from '../logger';
+import { cacheService } from '../cache';
 import { NormalizedCreateOrderRequest } from '../types/courier.types';
 
 export class OrderReconciliationWorker {
@@ -13,6 +14,7 @@ export class OrderReconciliationWorker {
   private readonly intervalMs: number;
   private readonly staleThresholdMs: number;
   private readonly maxRetryAttempts: number;
+  private readonly lockKey = 'worker:order_reconciliation:leader_lock';
 
   constructor(
     intervalMs: number = 60000, // Run every 60 seconds
@@ -31,10 +33,16 @@ export class OrderReconciliationWorker {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    logger.info('Order Reconciliation Worker started.', {
+    logger.info('Dedicated Order Reconciliation Worker started.', {
       intervalMs: this.intervalMs,
       staleThresholdMs: this.staleThresholdMs,
       maxRetries: this.maxRetryAttempts,
+      lockKey: this.lockKey,
+    });
+
+    // Run first cycle immediately
+    this.reconcilePendingOrders().catch((err) => {
+      logger.error('Error during initial order reconciliation cycle:', { error: err.message });
     });
 
     this.timer = setInterval(() => {
@@ -53,14 +61,24 @@ export class OrderReconciliationWorker {
       this.timer = null;
     }
     this.isRunning = false;
-    logger.info('Order Reconciliation Worker stopped.');
+    logger.info('Dedicated Order Reconciliation Worker stopped.');
   }
 
   /**
-   * Scans and processes orders stuck in PENDING_DISPATCH due to previous server crashes.
+   * Scans and processes orders stuck in PENDING_DISPATCH using distributed lock to prevent multi-pod conflicts.
    */
   public async reconcilePendingOrders(): Promise<number> {
     if (this.isProcessing) return 0;
+
+    // Acquire distributed leader lock for 55 seconds to ensure only 1 worker pod runs this cycle
+    const lockTtlSeconds = Math.max(10, Math.floor(this.intervalMs / 1000) - 5);
+    const hasLock = await cacheService.acquireLock(this.lockKey, lockTtlSeconds);
+
+    if (!hasLock) {
+      logger.debug('Reconciliation cycle skipped: Another worker pod holds the leader lock.');
+      return 0;
+    }
+
     this.isProcessing = true;
 
     try {
@@ -83,7 +101,7 @@ export class OrderReconciliationWorker {
         return 0;
       }
 
-      logger.warn(`Found ${pendingOrders.length} stuck PENDING_DISPATCH orders to reconcile...`);
+      logger.warn(`[Leader Worker] Found ${pendingOrders.length} stuck PENDING_DISPATCH orders to reconcile...`);
 
       let reconciledCount = 0;
 
@@ -92,10 +110,11 @@ export class OrderReconciliationWorker {
         if (success) reconciledCount++;
       }
 
-      logger.info(`Reconciliation cycle completed: ${reconciledCount}/${pendingOrders.length} orders recovered.`);
+      logger.info(`[Leader Worker] Reconciliation cycle completed: ${reconciledCount}/${pendingOrders.length} orders recovered.`);
       return reconciledCount;
     } finally {
       this.isProcessing = false;
+      await cacheService.releaseLock(this.lockKey);
     }
   }
 
